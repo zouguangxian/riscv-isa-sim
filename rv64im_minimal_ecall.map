@@ -1,0 +1,61 @@
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+RAM              0x0000000080000000 0x0000000008000000
+*default*        0x0000000000000000 0xffffffffffffffff
+
+Linker script and memory map
+
+LOAD /tmp/ccxUhYYB.o
+                0x0000000080000000                . = 0x80000000
+
+.text           0x0000000080000000      0x29c
+ *(.text)
+ .text          0x0000000080000000      0x29c /tmp/ccxUhYYB.o
+                0x0000000080000044                htif_putchar
+                0x0000000080000078                htif_exit
+                0x0000000080000098                trap_handler
+                0x0000000080000178                _start
+ *(.text.*)
+
+.rodata         0x00000000800002a0       0xd0
+ *(.rodata)
+ *(.rodata.*)
+ .rodata.str1.8
+                0x00000000800002a0       0xd0 /tmp/ccxUhYYB.o
+                                         0xc9 (size before relaxing)
+
+.rela.dyn       0x0000000080000370        0x0
+ .rela.text     0x0000000080000370        0x0 /tmp/ccxUhYYB.o
+
+.data           0x0000000080000370        0x0
+ *(.data)
+ .data          0x0000000080000370        0x0 /tmp/ccxUhYYB.o
+ *(.data.*)
+
+.bss            0x0000000080000370        0x0
+ *(.bss)
+ .bss           0x0000000080000370        0x0 /tmp/ccxUhYYB.o
+ *(.bss.*)
+ *(COMMON)
+                0x0000000080001000                . = 0x80001000
+
+.htif           0x0000000080000370       0x10
+                0x0000000080000370                tohost = .
+                0x0000000080000378                . = (. + 0x8)
+ *fill*         0x0000000080000370        0x8 
+                0x0000000080000378                fromhost = .
+                0x0000000080000380                . = (. + 0x8)
+ *fill*         0x0000000080000378        0x8 
+                [!provide]                        PROVIDE (_stack_top = (ORIGIN (RAM) + LENGTH (RAM)))
+OUTPUT(rv64im_minimal_ecall.elf elf64-littleriscv)
+
+.comment        0x0000000000000000        0xe
+ .comment       0x0000000000000000        0xe /tmp/ccxUhYYB.o
+                                          0xf (size before relaxing)
+
+.riscv.attributes
+                0x0000000000000000       0x21
+ .riscv.attributes
+                0x0000000000000000       0x21 /tmp/ccxUhYYB.o

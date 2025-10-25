@@ -1,4 +1,4 @@
-/* Minimal linker script for RV64IM minimal example */
+/* Linker script for RV64IM minimal example with ecall support */
 OUTPUT_ARCH("riscv")
 ENTRY(_start)
 
@@ -11,33 +11,39 @@ SECTIONS
 {
     . = 0x80000000;
     
-    .text : {
+    .text : ALIGN(16) {
         *(.text)
         *(.text.*)
     } > RAM
     
-    .data : {
+    .rodata : ALIGN(16) {
+        *(.rodata)
+        *(.rodata.*)
+    } > RAM
+    
+    .data : ALIGN(16) {
         *(.data)
         *(.data.*)
     } > RAM
     
-    .bss : {
+    .bss : ALIGN(16) {
         *(.bss)
         *(.bss.*)
         *(COMMON)
     } > RAM
     
-    /* Align to 8 bytes before HTIF region */
-    . = ALIGN(8);
-    
     /* Place tohost and fromhost at a fixed location for HTIF */
-    .htif : ALIGN(8) {
-        tohost = .;
-        . = . + 8;
-        fromhost = .;
-        . = . + 8;
+    .htif 0x80001000 : {
+        *(.htif)
+        tohost = 0x80001000;
+        LONG(0);
+        LONG(0);
+        fromhost = 0x80001008;
+        LONG(0);
+        LONG(0);
     } > RAM
     
     /* Stack at end of memory */
     PROVIDE(_stack_top = ORIGIN(RAM) + LENGTH(RAM));
 }
+

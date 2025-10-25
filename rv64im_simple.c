@@ -1,7 +1,7 @@
-// Ultra-simple RV64IM C example that uses proper HTIF protocol
-// Uses external symbols defined by linker script
+// Minimal RV64IM C Example
+// This is a very simple C program that definitely only uses RV64IM instructions
 
-// HTIF symbols - will be defined by linker script
+// HTIF symbols - use external symbols defined by linker script  
 extern volatile long tohost;
 extern volatile long fromhost;
 
@@ -27,13 +27,6 @@ static long divide(long a, long b) {
     return a / b;  // Uses DIV instruction from M extension
 }
 
-// Signal completion to spike using proper HTIF protocol
-void signal_exit(long code) {
-    // Format: syscall device (0), syscall command (0), exit payload ((code << 1) | 1)
-    long exit_payload = (code << 1) | 1;
-    tohost = htif_cmd(HTIF_DEVICE_SYSCALL, HTIF_CMD_SYSCALL, exit_payload);
-}
-
 // Entry point
 void _start(void) {
     // Simple calculations using only integer arithmetic
@@ -55,12 +48,10 @@ void _start(void) {
         counter = add(counter, i);
     }
     
-    // Final calculation
-    long final_result = result + counter;
-    
-    // Signal failure to spike to test "*** FAILED ***" message
-    // Change to signal_exit(0) for success (no error message)
-    signal_exit(1);
+    // Signal success to spike (tohost = 1 means success)
+    // Use proper HTIF protocol: syscall device, exit command with code 0
+    long exit_payload = (0 << 1) | 1;  // exit code 0 = success
+    tohost = htif_cmd(HTIF_DEVICE_SYSCALL, HTIF_CMD_SYSCALL, exit_payload);
     
     // Infinite loop (spike should exit when tohost is written)
     while (1) {
@@ -68,3 +59,5 @@ void _start(void) {
         asm volatile ("wfi");
     }
 }
+
+// Remove the local definitions - these will be provided by linker script

@@ -46,3 +46,18 @@ echo "To run:"
 echo "  ./build/spike --isa=rv64im rv64im_minimal.elf"
 echo ""
 echo "Expected: Program runs and exits cleanly"
+
+echo "Running..."
+
+# Capture exit code (disable set -e for this command)
+# Redirect stdin from /dev/null to prevent blocking
+if timeout 5 ./build/spike --isa=rv64im rv64im_minimal.elf </dev/null; then
+    echo "Exit code: 0 (success)"
+else
+    EXIT_CODE=$?
+    if [ $EXIT_CODE -eq 124 ]; then
+        echo "WARNING: Test timed out after 5 seconds"
+    else
+        echo "Exit code: $EXIT_CODE (failure)"
+    fi
+fi
