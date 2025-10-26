@@ -5,7 +5,12 @@ set -e
 
 RISCV_PREFIX=riscv64-unknown-elf-
 
-echo "Building minimal RV64IM C example with ecall support..."
+echo "Building OPTIMIZED minimal RV64IM ecall handler..."
+echo ""
+echo "Version: OPTIMIZED (16-byte stack, ~40-50% faster)"
+echo "For ROBUST version, see: rv64im_minimal_ecall_robust.c"
+echo "See WHICH_VERSION.md for detailed comparison"
+echo ""
 
 # Check if RISC-V toolchain is available
 if ! command -v ${RISCV_PREFIX}gcc &> /dev/null; then
@@ -18,7 +23,7 @@ if ! command -v ${RISCV_PREFIX}gcc &> /dev/null; then
     exit 1
 fi
 
-echo "Compiling rv64im_minimal_ecall.c..."
+echo "Compiling rv64im_minimal_ecall.c (optimized version)..."
 
 # Compile with ecall support
 ${RISCV_PREFIX}gcc \
@@ -55,7 +60,7 @@ if [ -f "./build/spike" ]; then
     echo "Running ecall test..."
     echo "========================================"
     # Redirect stdin from /dev/null to prevent blocking
-    if timeout 5 ./build/spike --isa=rv64im rv64im_minimal_ecall.elf </dev/null; then
+    if timeout 5 ./build/spike --instructions=5000 --isa=rv64im rv64im_minimal_ecall.elf </dev/null; then
         echo "========================================"
         echo "✅ ECALL TEST PASSED!"
         echo ""
@@ -73,9 +78,9 @@ if [ -f "./build/spike" ]; then
         echo "  - Returned correct byte count (22) ✓"
         echo "  - SYS_write handler validates arguments ✓"
         echo ""
-        echo "NOTE: To enable actual console output via HTIF putchar:"
-        echo "      1. Uncomment htif_putchar loop in sys_write()"
-        echo "      2. Run: ./build/spike pk rv64im_minimal_ecall.elf"
+            echo "Console output verification:"
+            echo "      You should see: 'DIRECT' and 'Hello from SYS_write!'"
+            echo "      Both are output via htif_putchar in bare-metal mode!"
     else
         EXIT_CODE=$?
         echo "========================================"

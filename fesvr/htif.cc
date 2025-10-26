@@ -179,6 +179,8 @@ void htif_t::load_symbols(std::map<std::string, uint64_t>& symbols)
   if (symbols.count("tohost") && symbols.count("fromhost")) {
     tohost_addr = symbols["tohost"];
     fromhost_addr = symbols["fromhost"];
+    fprintf(stderr, "[HTIF DEBUG] Found tohost=0x%llx fromhost=0x%llx\n",
+            (unsigned long long)tohost_addr, (unsigned long long)fromhost_addr);
   } else {
     fprintf(stderr, "warning: tohost and fromhost symbols not in ELF; can't communicate with target\n");
   }
@@ -267,17 +269,35 @@ int htif_t::run()
     std::bind(enq_func, &fromhost_queue, std::placeholders::_1);
 
   if (tohost_addr == 0) {
+    fprintf(stderr, "[HTIF DEBUG] tohost_addr is 0, entering idle loop\n");
     while (!should_exit())
       idle();
   }
 
+  fprintf(stderr, "[HTIF DEBUG] Entering HTIF run loop\n");
+  int loop_count = 0;
   while (!should_exit())
   {
     uint64_t tohost;
 
     try {
-      if ((tohost = from_target(mem.read_uint64(tohost_addr))) != 0)
+      tohost = from_target(mem.read_uint64(tohost_addr));
+      // Debug: show first few reads
+      if (loop_count < 5 || (loop_count % 10000 == 0)) {
+        fprintf(stderr, "[HTIF DEBUG] Read tohost=0x%llx from addr=0x%llx loop=%d\n",
+                (unsigned long long)tohost, (unsigned long long)tohost_addr, loop_count);
+      }
+      loop_count++;
+      
+      if (tohost != 0) {
+        fprintf(stderr, "[HTIF DEBUG] NON-ZERO tohost=0x%llx device=%lld cmd=%lld payload=0x%llx\n",
+                (unsigned long long)tohost,
+                (long long)((tohost >> 56) & 0xFF),
+                (long long)((tohost >> 48) & 0xFF),
+                (unsigned long long)(tohost & 0xFFFFFFFFFFFFULL));
         mem.write_uint64(tohost_addr, target_endian<uint64_t>::zero);
+        fprintf(stderr, "[HTIF DEBUG] Cleared tohost\n");
+      }
     } catch (mem_trap_t& t) {
       bad_address("accessing tohost", t.get_tval());
     }
@@ -286,6 +306,7 @@ int htif_t::run()
       if (tohost != 0) {
         command_t cmd(mem, tohost, fromhost_callback);
         device_list.handle_command(cmd);
+        fprintf(stderr, "[HTIF DEBUG] Command handled\n");
       } else {
         idle();
       }

@@ -1,28 +1,17 @@
 // Optimized minimal ecall handler for RISC-V RV64IM
-// This version uses the OPTIMIZED trap handler for testing
-//
-// For the ROBUST version (OS/kernel development), see:
-//   rv64im_minimal_ecall_robust.c
+// This version follows the feedback for minimal trap handler overhead
 //
 // KEY OPTIMIZATIONS:
 // - 16 byte stack frame (vs 96 bytes in robust version)
-// - Only saves ra (callee saves s0-s11 if needed per ABI)
+// - Only saves ra (callee saves s0-s11 if needed)
 // - Shuffles args in registers instead of spilling to stack
 // - Minimal CSR reads (mepc + mcause)
 // - Direct return in a0 (no extra moves)
 //
-// PERFORMANCE:
+// TRADE-OFFS:
+// - Assumes M-mode only, ecall-only (no interrupt handling yet)
+// - Less defensive, more performance-focused
 // - ~40-50% faster than robust version
-// - 83% less stack usage (16 vs 96 bytes)
-// - Smaller code size
-//
-// USE CASE:
-// - Bare-metal firmware/bootloaders
-// - Simple embedded systems
-// - Performance-critical ecall handling
-// - M-mode only, ecall-focused testing
-//
-// See WHICH_VERSION.md for detailed comparison
 
 #define STDOUT_FILENO 1
 #define STDERR_FILENO 2
@@ -80,7 +69,7 @@ volatile long ecall_was_called = 0;
 volatile long trap_mcause = 0;
 volatile long syscall_number = 0;
 
-// C trap handler - minimal/optimized version
+// C trap handler - minimal version
 // Arguments: mcause, &mepc, syscall_nr, arg0, arg1, arg2
 long trap_handler_c(long mcause, long *mepc, long a7, long a0, long a1, long a2) {
     trap_mcause = mcause;
@@ -102,7 +91,7 @@ long trap_handler_c(long mcause, long *mepc, long a7, long a0, long a1, long a2)
             result = -1;
         }
         
-        *mepc += 4;  // Skip ecall instruction
+        *mepc += 4;  // Skip ecall
         return result;
     } else {
         htif_exit(50 + cause_code);
@@ -110,26 +99,12 @@ long trap_handler_c(long mcause, long *mepc, long a7, long a0, long a1, long a2)
     }
 }
 
-// ============================================================================
-// OPTIMIZED TRAP HANDLER
-// ============================================================================
+// OPTIMIZED MINIMAL TRAP HANDLER
+// 
+// Stack: 16 bytes (ra + mepc shadow)
+// Saves: Only ra (C function saves s-regs if needed)
+// Args:  Shuffled in registers (no stack spills)
 //
-// This is the MINIMAL/OPTIMIZED version based on community feedback.
-//
-// Key principles:
-// 1. Only save what you MUST (ra, because we 'call')
-// 2. Let the callee save s-regs if it needs them (RISC-V ABI)
-// 3. Shuffle args in registers instead of spilling to stack
-// 4. Minimize CSR reads
-// 5. Don't move return value unnecessarily
-//
-// Stack frame: 16 bytes
-//   [sp+8]: saved ra
-//   [sp+0]: mepc shadow (so C can modify it)
-//
-// Performance: ~40-50% faster than robust version
-// ============================================================================
-
 asm(
     ".align 4\n"
     ".global trap_handler\n"
@@ -145,20 +120,16 @@ asm(
     
     // Repack args for: trap_handler_c(mcause, &mepc, nr, arg0, arg1, arg2)
     // On entry: a7=nr, a0..a2=arg0..arg2
-    //
-    // KEY OPTIMIZATION: Shuffle args in registers BEFORE reading mcause into a0
-    // This avoids spilling a0-a2 to stack!
-    "    mv      a3, a0\n"          // Preserve a0 before overwriting
-    "    mv      a4, a1\n"          // Preserve a1
-    "    mv      a5, a2\n"          // Preserve a2
-    "    csrr    a0, mcause\n"      // Now safe to use a0 for mcause
+    "    mv      a3, a0\n"          // Shuffle args before overwriting a0
+    "    mv      a4, a1\n"
+    "    mv      a5, a2\n"
+    "    csrr    a0, mcause\n"      // a0 = mcause
     "    addi    a1, sp, 0\n"       // a1 = &mepc shadow
     "    mv      a2, a7\n"          // a2 = syscall number
     
     "    call    trap_handler_c\n"  // Returns result in a0
     
     // Commit updated mepc and return
-    // Note: a0 already has the return value, no need to move it
     "    ld      t0, 0(sp)\n"
     "    csrw    mepc, t0\n"
     "    ld      ra, 8(sp)\n"
@@ -206,19 +177,22 @@ asm(
 
 void _start_c(void) {
     // Test 1: Direct HTIF output
-    htif_putchar('D');
-    htif_putchar('I');
-    htif_putchar('R');
-    htif_putchar('E');
-    htif_putchar('C');
+    htif_putchar('O');
+    htif_putchar('P');
     htif_putchar('T');
+    htif_putchar('I');
+    htif_putchar('M');
+    htif_putchar('I');
+    htif_putchar('Z');
+    htif_putchar('E');
+    htif_putchar('D');
     htif_putchar('\n');
     
     // Test 2: Setup trap handler
     setup_trap_handler();
     
     // Test 3: SYS_write via ecall
-    const char *msg = "Hello from SYS_write!\n";
+    const char *msg = "Hello from optimized!\n";
     long result = write(STDOUT_FILENO, msg, 22);
     
     // Validate
@@ -232,3 +206,4 @@ void _start_c(void) {
         htif_exit(0);  // Success!
     }
 }
+

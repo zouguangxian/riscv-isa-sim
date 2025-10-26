@@ -12,6 +12,7 @@ SECTIONS
     . = 0x80000000;
     
     .text : ALIGN(16) {
+        *(.text.boot)    /* Boot code first */
         *(.text)
         *(.text.*)
     } > RAM
@@ -32,15 +33,15 @@ SECTIONS
         *(COMMON)
     } > RAM
     
-    /* Place tohost and fromhost at a fixed location for HTIF */
-    .htif 0x80001000 : {
-        *(.htif)
-        tohost = 0x80001000;
-        LONG(0);
-        LONG(0);
-        fromhost = 0x80001008;
-        LONG(0);
-        LONG(0);
+    /* Align to 8 bytes before HTIF region */
+    . = ALIGN(8);
+    
+    /* Place tohost and fromhost dynamically after other sections */
+    .htif : ALIGN(8) {
+        tohost = .;
+        . = . + 8;
+        fromhost = .;
+        . = . + 8;
     } > RAM
     
     /* Stack at end of memory */

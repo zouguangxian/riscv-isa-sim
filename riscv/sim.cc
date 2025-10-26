@@ -361,6 +361,8 @@ void sim_t::set_rom()
   const int reset_vec_size = 8;
 
   reg_t start_pc = cfg->start_pc.value_or(get_entry_point());
+  
+  fprintf(stderr, "[BOOTROM DEBUG] Entry point: 0x%llx\n", (unsigned long long)start_pc);
 
   uint32_t reset_vec[reset_vec_size] = {
     0x297,                                      // auipc  t0,0x0
@@ -423,6 +425,7 @@ void sim_t::reset()
 
 void sim_t::idle()
 {
+  static int idle_count = 0;
   if (done())
     return;
 
@@ -438,6 +441,13 @@ void sim_t::idle()
         return;
       }
       *instruction_limit -= INTERLEAVE;
+    }
+    
+    // Debug: show PC periodically
+    if (idle_count++ % 1000 == 0) {
+      reg_t pc = procs[0]->get_state()->pc;
+      fprintf(stderr, "[IDLE DEBUG] Executing instructions, PC=0x%llx idle_count=%d\n",
+              (unsigned long long)pc, idle_count);
     }
     step(INTERLEAVE);
   }
